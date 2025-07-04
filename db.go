@@ -35,11 +35,11 @@ func (m *Money) Scan(src interface{}) error {
 	currency := &Currency{}
 
 	// let's support string and int64
-	switch src.(type) {
+	switch src := src.(type) {
 	case string:
-		parts := strings.Split(src.(string), DBMoneyValueSeparator)
+		parts := strings.Split(src, DBMoneyValueSeparator)
 		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-			return fmt.Errorf("%#v is not valid to scan into Money; update your query to return a money.DBMoneyValueSeparator-separated pair of \"amount%scurrency_code\"", src.(string), DBMoneyValueSeparator)
+			return fmt.Errorf("%#v is not valid to scan into Money; update your query to return a money.DBMoneyValueSeparator-separated pair of \"amount%scurrency_code\"", src, DBMoneyValueSeparator)
 		}
 
 		if a, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
@@ -73,9 +73,9 @@ func (c Currency) Value() (driver.Value, error) {
 func (c *Currency) Scan(src interface{}) error {
 	var val *Currency
 	// let's support string only
-	switch src.(type) {
+	switch src := src.(type) {
 	case string:
-		val = GetCurrency(src.(string))
+		val = GetCurrency(src)
 	default:
 		return fmt.Errorf("%T is not a supported type for a Currency (store the Currency.Code value as a string only)", src)
 	}

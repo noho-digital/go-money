@@ -105,13 +105,10 @@ func TestMoney_Scan(t *testing.T) {
 			if tt.wantErr {
 				return
 			}
-			if got == nil {
-				t.Errorf("money.Scan() result was <nil>")
-				return
-			}
+
 			eq, err := tt.want.Equals(got)
 			if err != nil {
-				t.Errorf(err.Error())
+				t.Error(err.Error())
 			}
 			if !eq {
 				t.Errorf("Value() got = %s %s, want %s %s", got.Display(), got.Currency().Code, tt.want.Display(), tt.want.Currency().Code)
