@@ -8,13 +8,15 @@ import (
 	"math"
 	"reflect"
 	"testing"
+
+	"github.com/shopspring/decimal"
 )
 
 func TestNew(t *testing.T) {
 	m := New(1, EUR)
 
-	if m.amount != 1 {
-		t.Errorf("Expected %d got %d", 1, m.amount)
+	if !m.amount.Equal(decimal.NewFromInt(1)) {
+		t.Errorf("Expected %d got %d", decimal.NewFromInt(1).BigInt(), m.amount.BigInt())
 	}
 
 	if m.currency.Code != EUR {
@@ -23,19 +25,19 @@ func TestNew(t *testing.T) {
 
 	m = New(-100, EUR)
 
-	if m.amount != -100 {
+	if !m.amount.Equal(decimal.NewFromInt(-100)) {
 		t.Errorf("Expected %d got %d", -100, m.amount)
 	}
 }
 
 func TestNew_WithUnregisteredCurrency(t *testing.T) {
 	const currencyFooCode = "FOO"
-	const expectedAmount = 100
+	var expectedAmount = decimal.NewFromInt(100)
 	const expectedDisplay = "1.00FOO"
 
 	m := New(100, currencyFooCode)
 
-	if m.amount != expectedAmount {
+	if !m.amount.Equal(expectedAmount) {
 		t.Errorf("Expected amount %d got %d", expectedAmount, m.amount)
 	}
 
@@ -276,7 +278,7 @@ func TestMoney_Absolute(t *testing.T) {
 		m := New(tc.amount, EUR)
 		r := m.Absolute().amount
 
-		if r != tc.expected {
+		if !r.Equal(decimal.NewFromInt(tc.expected)) {
 			t.Errorf("Expected absolute %d to be %d got %d", m.amount,
 				tc.expected, r)
 		}
@@ -297,7 +299,7 @@ func TestMoney_Negative(t *testing.T) {
 		m := New(tc.amount, EUR)
 		r := m.Negative().amount
 
-		if r != tc.expected {
+		if !r.Equal(decimal.NewFromInt(tc.expected)) {
 			t.Errorf("Expected absolute %d to be %d got %d", m.amount,
 				tc.expected, r)
 		}
@@ -378,7 +380,7 @@ func TestMoney_Add4(t *testing.T) {
 		t.Error(err)
 	}
 
-	if r.amount != 100 {
+	if !r.amount.Equal(decimal.NewFromInt(100)) {
 		t.Error("Expected amount to be 100")
 	}
 }
@@ -402,7 +404,7 @@ func TestMoney_Subtract(t *testing.T) {
 			t.Error(err)
 		}
 
-		if r.amount != tc.expected {
+		if !r.amount.Equal(decimal.NewFromInt(tc.expected)) {
 			t.Errorf("Expected %d - %d = %d got %d", tc.amount1, tc.amount2,
 				tc.expected, r.amount)
 		}
@@ -457,7 +459,7 @@ func TestMoney_Subtract4(t *testing.T) {
 		t.Error(err)
 	}
 
-	if r.amount != 100 {
+	if !r.amount.Equal(decimal.NewFromInt(100)) {
 		t.Error("Expected amount to be 100")
 	}
 }
@@ -478,7 +480,7 @@ func TestMoney_Multiply(t *testing.T) {
 		m := New(tc.amount, EUR)
 		r := m.Multiply(tc.multiplier).amount
 
-		if r != tc.expected {
+		if !r.Equal(decimal.NewFromInt(tc.expected)) {
 			t.Errorf("Expected %d * %d = %d got %d", tc.amount, tc.multiplier, tc.expected, r)
 		}
 	}
@@ -501,7 +503,7 @@ func TestMoney_Multiply2(t *testing.T) {
 		mon1 := New(tc.amount1, EUR)
 		r := mon1.Multiply(tc.amount2, tc.amount3)
 
-		if r.amount != tc.expected {
+		if !r.amount.Equal(decimal.NewFromInt(tc.expected)) {
 			t.Errorf("Expected %d * %d * %d = %d got %d", tc.amount1, tc.amount2, tc.amount3, tc.expected, r.amount)
 		}
 	}
@@ -525,8 +527,8 @@ func TestMoney_Round(t *testing.T) {
 		m := New(tc.amount, EUR)
 		r := m.Round().amount
 
-		if r != tc.expected {
-			t.Errorf("Expected rounded %d to be %d got %d", tc.amount, tc.expected, r)
+		if !r.Equal(decimal.NewFromInt(tc.expected)) {
+			t.Errorf("Expected rounded %d to be %d got %d", tc.amount, tc.expected, r.BigInt())
 		}
 	}
 }
@@ -544,7 +546,7 @@ func TestMoney_RoundWithExponential(t *testing.T) {
 		m := New(tc.amount, "CUR")
 		r := m.Round().amount
 
-		if r != tc.expected {
+		if !r.Equal(decimal.NewFromInt(tc.expected)) {
 			t.Errorf("Expected rounded %d to be %d got %d", tc.amount, tc.expected, r)
 		}
 	}
@@ -570,7 +572,7 @@ func TestMoney_Split(t *testing.T) {
 		split, _ := m.Split(tc.split)
 
 		for _, party := range split {
-			rs = append(rs, party.amount)
+			rs = append(rs, party.amount.IntPart())
 		}
 
 		if !reflect.DeepEqual(tc.expected, rs) {
@@ -610,7 +612,7 @@ func TestMoney_Allocate(t *testing.T) {
 		split, _ := m.Allocate(tc.ratios...)
 
 		for _, party := range split {
-			rs = append(rs, party.amount)
+			rs = append(rs, party.amount.IntPart())
 		}
 
 		if !reflect.DeepEqual(tc.expected, rs) {
@@ -796,7 +798,7 @@ func TestMoney_Amount(t *testing.T) {
 func TestNewFromFloat(t *testing.T) {
 	m := NewFromFloat(12.34, EUR)
 
-	if m.amount != 1234 {
+	if !m.amount.Equal(decimal.NewFromInt(1234)) {
 		t.Errorf("Expected %d got %d", 1234, m.amount)
 	}
 
@@ -806,7 +808,7 @@ func TestNewFromFloat(t *testing.T) {
 
 	m = NewFromFloat(12.34, "eur")
 
-	if m.amount != 1234 {
+	if !m.amount.Equal(decimal.NewFromInt(1234)) {
 		t.Errorf("Expected %d got %d", 1234, m.amount)
 	}
 
@@ -816,7 +818,7 @@ func TestNewFromFloat(t *testing.T) {
 
 	m = NewFromFloat(-0.125, EUR)
 
-	if m.amount != -12 {
+	if !m.amount.Equal(decimal.NewFromInt(-12)) {
 		t.Errorf("Expected %d got %d", -12, m.amount)
 	}
 }
@@ -828,7 +830,7 @@ func TestNewFromFloat_WithUnregisteredCurrency(t *testing.T) {
 
 	m := NewFromFloat(12.34, currencyFooCode)
 
-	if m.amount != expectedAmount {
+	if !m.amount.Equal(decimal.NewFromInt(expectedAmount)) {
 		t.Errorf("Expected amount %d got %d", expectedAmount, m.amount)
 	}
 

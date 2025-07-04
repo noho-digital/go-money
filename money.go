@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
+	"github.com/shopspring/decimal"
 )
 
 // Injection points for backward compatibility.
@@ -70,7 +72,7 @@ func defaultMarshalJSON(m Money) ([]byte, error) {
 }
 
 // Amount is a data structure that stores the amount being used for calculations.
-type Amount = int64
+type Amount = decimal.Decimal
 
 // Money represents monetary value information, stores
 // currency and amount value.
@@ -82,7 +84,7 @@ type Money struct {
 // New creates and returns new instance of Money.
 func New(amount int64, code string) *Money {
 	return &Money{
-		amount:   amount,
+		amount:   decimal.NewFromInt(amount),
 		currency: newCurrency(code).get(),
 	}
 }
@@ -90,8 +92,10 @@ func New(amount int64, code string) *Money {
 // NewFromFloat creates and returns new instance of Money from a float64.
 // Always rounding trailing decimals down.
 func NewFromFloat(amount float64, code string) *Money {
-	currencyDecimals := math.Pow10(newCurrency(code).get().Fraction)
-	return New(int64(amount*currencyDecimals), code)
+	amt := decimal.NewFromFloat(amount)
+	currency := newCurrency(code).get()
+	amt = amt.Mul(decimal.New(1, int32(currency.Fraction)))
+	return New(amt.IntPart(), code)
 }
 
 // Currency returns the currency used by Money.
@@ -101,7 +105,7 @@ func (m *Money) Currency() *Currency {
 
 // Amount returns a copy of the internal monetary value as an int64.
 func (m *Money) Amount() int64 {
-	return m.amount
+	return m.amount.IntPart()
 }
 
 // SameCurrency check if given Money is equals by currency.
@@ -119,9 +123,9 @@ func (m *Money) assertSameCurrency(om *Money) error {
 
 func (m *Money) compare(om *Money) int {
 	switch {
-	case m.amount > om.amount:
+	case m.amount.GreaterThan(om.amount):
 		return 1
-	case m.amount < om.amount:
+	case m.amount.LessThan(om.amount):
 		return -1
 	}
 
@@ -175,17 +179,17 @@ func (m *Money) LessThanOrEqual(om *Money) (bool, error) {
 
 // IsZero returns boolean of whether the value of Money is equals to zero.
 func (m *Money) IsZero() bool {
-	return m.amount == 0
+	return m.amount.IsZero()
 }
 
 // IsPositive returns boolean of whether the value of Money is positive.
 func (m *Money) IsPositive() bool {
-	return m.amount > 0
+	return m.amount.IsPositive()
 }
 
 // IsNegative returns boolean of whether the value of Money is negative.
 func (m *Money) IsNegative() bool {
-	return m.amount < 0
+	return m.amount.IsNegative()
 }
 
 // Absolute returns new Money struct from given Money using absolute monetary value.
@@ -248,7 +252,7 @@ func (m *Money) Multiply(muls ...int64) *Money {
 		k.amount = mutate.calc.multiply(k.amount, m2)
 	}
 
-	return &Money{amount: mutate.calc.multiply(m.amount, k.amount), currency: m.currency}
+	return &Money{amount: mutate.calc.multiply(m.amount, k.amount.IntPart()), currency: m.currency}
 }
 
 // Round returns new Money struct with value rounded to nearest zero.
@@ -276,12 +280,12 @@ func (m *Money) Split(n int) ([]*Money, error) {
 	// Add leftovers to the first parties.
 
 	v := int64(1)
-	if m.amount < 0 {
+	if m.amount.IsNegative() {
 		v = -1
 	}
-	for p := 0; l != 0; p++ {
-		ms[p].amount = mutate.calc.add(ms[p].amount, v)
-		l--
+	for p := 0; !l.IsZero(); p++ {
+		ms[p].amount = mutate.calc.add(ms[p].amount, decimal.NewFromInt(v))
+		l = l.Sub(decimal.NewFromInt(1))
 	}
 
 	return ms, nil
@@ -316,7 +320,7 @@ func (m *Money) Allocate(rs ...int) ([]*Money, error) {
 		}
 
 		ms = append(ms, party)
-		total += party.amount
+		total += party.amount.IntPart()
 	}
 
 	// if the sum of all ratios is zero, then we just returns zeros and don't do anything
@@ -326,14 +330,14 @@ func (m *Money) Allocate(rs ...int) ([]*Money, error) {
 	}
 
 	// Calculate leftover value and divide to first parties.
-	lo := m.amount - total
+	lo := m.amount.IntPart() - total
 	sub := int64(1)
 	if lo < 0 {
 		sub = -sub
 	}
 
 	for p := 0; lo != 0; p++ {
-		ms[p].amount = mutate.calc.add(ms[p].amount, sub)
+		ms[p].amount = mutate.calc.add(ms[p].amount, decimal.NewFromInt(sub))
 		lo -= sub
 	}
 
@@ -343,13 +347,13 @@ func (m *Money) Allocate(rs ...int) ([]*Money, error) {
 // Display lets represent Money struct as string in given Currency value.
 func (m *Money) Display() string {
 	c := m.currency.get()
-	return c.Formatter().Format(m.amount)
+	return c.Formatter().Format(m.amount.IntPart())
 }
 
 // AsMajorUnits lets represent Money struct as subunits (float64) in given Currency value
 func (m *Money) AsMajorUnits() float64 {
 	c := m.currency.get()
-	return c.Formatter().ToMajorUnits(m.amount)
+	return c.Formatter().ToMajorUnits(m.amount.IntPart())
 }
 
 // UnmarshalJSON is implementation of json.Unmarshaller
@@ -371,7 +375,7 @@ func (m Money) MarshalJSON() ([]byte, error) {
 // If compare moneys from distinct currency, return (m.amount, ErrCurrencyMismatch)
 func (m *Money) Compare(om *Money) (int, error) {
 	if err := m.assertSameCurrency(om); err != nil {
-		return int(m.amount), err
+		return int(m.amount.IntPart()), err
 	}
 
 	return m.compare(om), nil

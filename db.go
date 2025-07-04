@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -23,7 +25,7 @@ const (
 // Value implements driver.Valuer to serialise a Money instance into a delimited string using the DBMoneyValueSeparator
 // for example: "amount|currency_code"
 func (m *Money) Value() (driver.Value, error) {
-	return fmt.Sprintf("%d%s%s", m.amount, DBMoneyValueSeparator, m.Currency().Code), nil
+	return fmt.Sprintf("%d%s%s", m.amount.IntPart(), DBMoneyValueSeparator, m.Currency().Code), nil
 }
 
 // Scan implements sql.Scanner to deserialize a Money instance from a DBMoneyValueSeparator-separated string
@@ -41,7 +43,7 @@ func (m *Money) Scan(src interface{}) error {
 		}
 
 		if a, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
-			amount = a
+			amount = decimal.NewFromInt(a)
 		} else {
 			return fmt.Errorf("scanning %#v into an Amount: %v", parts[0], err)
 		}
